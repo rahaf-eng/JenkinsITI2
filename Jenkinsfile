@@ -1,11 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        IMAGE_NAME = "my-python-app"
-        CONTAINER_NAME = "my-python-app-container"
-    }
-
     stages {
         // 1. مرحلة السحب من جيت هاب
         stage('Checkout') {
@@ -15,32 +10,38 @@ pipeline {
             }
         }
 
-        // 2. مرحلة بناء الصورة (Build)
+        // 2. مرحلة الـ Build (تجهيز البيئة الافتراضية)
         stage('Build') {
             steps {
-                echo 'Building Docker Image...'
-                // بناء صورة الدوكر من الـ Dockerfile
-                sh "docker build -t ${IMAGE_NAME}:latest ."
+                echo 'Setting up Python Virtual Environment...'
+                sh '''
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    pip install -r requirements.txt
+                '''
             }
         }
 
         // 3. مرحلة الاختبار (Test)
         stage('Test') {
             steps {
-                echo 'Running Application Tests inside a temporary container...'
-                // تشغيل الاختبارات للتأكد من سلامة الكود قبل النشر النهائي
-                sh "docker run --rm ${IMAGE_NAME}:latest pytest test_app.py"
+                echo 'Running Application Tests...'
+                sh '''
+                    . venv/bin/activate
+                    pytest test_app.py
+                '''
             }
         }
 
         // 4. مرحلة النشر والتشغيل (Deploy)
         stage('Deploy') {
             steps {
-                echo 'Deploying application to Docker Desktop...'
-                // مسح الحاوية القديمة لو كانت شغالها لمنع تضارب الـ Ports
-                sh "docker rm -f ${CONTAINER_NAME} || true"
-                // تشغيل الحاوية الجديدة وربطها ببورت 5000
-                sh "docker run -d --name ${CONTAINER_NAME} -p 5000:5000 ${IMAGE_NAME}:latest"
+                echo 'Deploying application (Running Flask App in background)...'
+                // تشغيل التطبيق في الخلفية عشان جينكينز ما يفضلش معلق
+                sh '''
+                    . venv/bin/activate
+                    nohup python3 app.py > flask.log 2>&1 &
+                '''
                 echo 'Application is live!'
             }
         }
@@ -48,7 +49,7 @@ pipeline {
 
     post {
         success {
-            echo 'Pipeline finished successfully! Ready for screenshots.'
+            echo 'Pipeline finished successfully!'
         }
         failure {
             echo 'Pipeline failed. Check the console output.'
