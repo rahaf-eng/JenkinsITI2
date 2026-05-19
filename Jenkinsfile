@@ -11,10 +11,10 @@ pipeline {
 
         stage('Build') {
             steps {
-                echo 'Setting up Python Virtual Environment on Windows...'
-                bat '''
-                    python -m venv venv
-                    call venv\\Scripts\\activate
+                echo 'Setting up Python Virtual Environment...'
+                sh '''
+                    python3 -m venv venv
+                    . venv/bin/activate
                     pip install -r requirements.txt
                 '''
             }
@@ -23,8 +23,8 @@ pipeline {
         stage('Test') {
             steps {
                 echo 'Running Application Tests...'
-                bat '''
-                    call venv\\Scripts\\activate
+                sh '''
+                    . venv/bin/activate
                     pytest test_app.py
                 '''
             }
@@ -33,9 +33,11 @@ pipeline {
         stage('Deploy') {
             steps {
                 echo 'Deploying application (Running Flask App in Background)...'
-                bat '''
-                    call venv\\Scripts\\activate
-                    start /B python app.py > flask.log 2>&1
+                // تعديل الأمر لضمان تشغيله في الخلفية تماماً جوه Docker بدون تعليق
+                sh '''
+                    . venv/bin/activate
+                    nohup python3 app.py > flask.log 2>&1 &
+                    sleep 2
                 '''
                 echo 'Application is live!'
             }
